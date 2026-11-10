@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Визуализация</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #fff; }
+    #viz { width: 100vw; height: 100vh; }
+    .msg { font: 15px/1.5 system-ui, sans-serif; color: #666; padding: 40px; text-align: center; }
+  </style>
+</head>
+<body>
+  <div id="viz"><div class="msg">Загрузка…</div></div>
+  <script src="/vendor/echarts.min.js"></script>
+  <script src="/vendor/echarts-langRU.js"></script>
+  <script>window.__VS_LOCALE_RU = true;</script>
+  <script src="/runtime/core.js"></script>
+  <script>
+    // Просмотр/встраивание: /view/<id>  (iframe-код выдаётся в редакторе)
+    // Параметры: ?height=auto — высота по пропорциям проекта вместо всего окна
+    (async function () {
+      const el = document.getElementById('viz');
+      try {
+        const id = decodeURIComponent(location.pathname.split('/').pop());
+        const [tpls, project] = await Promise.all([
+          fetch('/api/templates').then((r) => r.json()),
+          fetch('/api/projects/' + encodeURIComponent(id)).then((r) => {
+            if (!r.ok) throw new Error('Визуализация не найдена');
+            return r.json();
+          }),
+        ]);
+        await VS.loadScripts(tpls.builtin.concat(tpls.custom));
+        if (!VS.templates[project.template]) throw new Error('Шаблон «' + project.template + '» не установлен');
+        document.title = project.title || 'Визуализация';
+        const s = VS.resolveSettings(VS.templates[project.template], project.settings);
+        document.body.style.background = s['layout.background'];
+        const auto = new URLSearchParams(location.search).get('height') === 'auto';
+        const fit = () => {
+          if (auto) el.style.height = VS.heightFor(project, el.clientWidth) + 'px';
+        };
+        fit();
+        window.addEventListener('resize', fit);
+        VS.render(el, project);
+      } catch (e) {
+        el.innerHTML = '<div class="msg"></div>';
+        el.firstChild.textContent = e.message;
+      }
+    })();
+  </script>
+</body>
+</html>
